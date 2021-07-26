@@ -19,7 +19,9 @@
     "axios": "^0.21.1",
     "electron-serve": "^1.1.0",
     "electron-store": "^8.0.0",
-    "jspdf": "^2.3.1"
+    "got": "^9.6.0",
+    "jspdf": "^2.3.1",
+    "mangadex-full-api": "^5.2.0"
   },
   "devDependencies": {
     "@material-ui/core": "^4.12.2",

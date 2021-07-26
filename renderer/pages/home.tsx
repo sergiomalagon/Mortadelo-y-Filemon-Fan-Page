@@ -1,17 +1,9 @@
 import React from "react";
 import Head from "next/head";
 import { Theme, makeStyles, createStyles } from "@material-ui/core/styles";
-import Button from "@material-ui/core/Button";
-import Dialog from "@material-ui/core/Dialog";
-import DialogTitle from "@material-ui/core/DialogTitle";
-import DialogContent from "@material-ui/core/DialogContent";
-import DialogContentText from "@material-ui/core/DialogContentText";
-import DialogActions from "@material-ui/core/DialogActions";
-import Typography from "@material-ui/core/Typography";
-import Link from "../components/Link";
 import axios from "axios";
 import jsPDF from "jspdf";
-import { Volumen, Volumenes, MangadexHome, Manga, Cover } from "../components/Manga";
+import MFA from "mangadex-full-api";
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -43,10 +35,10 @@ const useStyles = makeStyles((theme: Theme) =>
 
 function Home() {
   const classes = useStyles({});
-
-  const doc = new jsPDF();
-  const baseUrl: string = "https://api.mangadex.org";
-  let nombreVolumenes: string[] = [];
+  let doc = null;
+  let lasChapterFetched: number = 0;
+  let numChapterFetched: number = 0;
+  const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
   async function getBase64(url: string): Promise<string> {
     const response = await axios.get(url, {
@@ -55,52 +47,76 @@ function Home() {
     return Buffer.from(response.data, "binary").toString("base64");
   }
 
-  async function obtenerVolumen(volumen: string, idManga: string): Promise<Volumen | void> {
-    const v: Volumen = await (await axios.get(baseUrl + `/chapter?manga=${idManga}&translatedLanguage[]=en&volume[]=${volumen}&limit=100`)).data;
-    console.log(v.results[0].data.attributes.hash);
+  async function obtenerVolumen(volumen: string, idManga: string): Promise<MFA.Chapter[]> {
+    const v: MFA.Chapter[] = await MFA.Chapter.search({ manga: idManga, limit: 100, translatedLanguage: ["en"], volume: `${volumen}` });
+    console.log("obtenerVolumen", v);
     return v;
   }
 
-  async function obtenerNumeroVolumenes(idManga: string): Promise<number | void> {
-    const v: Volumenes = await (await axios.get(baseUrl + `/manga/${idManga}/aggregate?&translatedLanguage[]=en`)).data;
-    nombreVolumenes = Object.keys(v.volumes);
-    console.log(Object.keys(v.volumes).toString());
-    return Object.keys(v.volumes).length;
+  async function obtenerNombreVolumenes(idManga: string): Promise<string[]> {
+    const manga: Object = await (await MFA.Manga.get(idManga)).getAggregate("en");
+    console.log("obtenerNombreVolumenes", manga);
+    return Object.keys(manga);
   }
 
   async function addImageToPDF(url: string) {
-    const imgData: string = "data:image/jpeg;base64" + (await getBase64(url));
-    doc.addImage(imgData, "JPEG", 0, 0, 210, 297);
+    const imgData: string = "data:image/jpeg;base64," + (await getBase64(url));
+    doc.addImage(imgData, "PNG", 0, 0, 210, 297);
+    doc.addPage();
   }
 
-  async function addCoverToPDF(mangaId: string, coverName: string) {
-    const imgData: string = "data:image/jpeg;base64," + (await getBase64(`https://uploads.mangadex.org/covers/${mangaId}/${coverName}`));
-    doc.addImage(imgData, "JPEG", 0, 0, 210, 297);
-  }
-
-  async function getImgUrl(chaperId: number, chapeterHash: string, data: string): Promise<string> {
-    const v: MangadexHome = await axios.get(baseUrl + `/at-home/server/${chaperId}`);
-    return `${v.baseUrl}/data/${chapeterHash}/${data}`;
+  async function getChapterImgUrls(chaperts: MFA.Chapter[], numeroCap: number): Promise<string[]> {
+    return await chaperts[numeroCap].getReadablePages(false);
   }
 
   async function getMangaCoverName(mangaId: string): Promise<string> {
-    const v: Manga = await (await axios.get(baseUrl + `/manga/${mangaId}`)).data;
-    const coverId = v.relationships.find((e) => e.type === "cover_art")?.id;
-    const vv: Cover = await (await axios.get(baseUrl + `/cover/${coverId}`)).data;
-    return vv.data.attributes.fileName;
+    const cover: MFA.Cover = await MFA.Cover.get((await MFA.Manga.get(mangaId)).mainCover.id);
+    console.log("getMangaCoverName", cover.imageSource);
+    return cover.imageSource;
   }
 
   async function getMangaName(mangaId: string): Promise<string> {
-    const v: Manga = await (await axios.get(baseUrl + `/manga/${mangaId}`)).data;
-    console.log(Object.values(v.data.attributes.title)[0]);
-    return Object.values(v.data.attributes.title)[0];
+    const manga: MFA.Manga = await MFA.Manga.get(mangaId);
+    console.log("getMangaName", manga);
+    return manga.title;
   }
 
   async function Descargar(idManga: string) {
-    addCoverToPDF(idManga, await getMangaCoverName(idManga));
-    for (let index = 0; index < (await obtenerNumeroVolumenes(idManga)); index++) {}
+    new Notification("MORTADELO Y FILEMON", { body: "LA DESCARGA A COMENZADO" });
+    const nombreVolumenes: string[] = await obtenerNombreVolumenes(idManga);
+    const mangaName: string = await getMangaName(idManga);
+    console.log("ENTRA EN EL BUCLE");
+    for (let i = 0; i < nombreVolumenes.length; i++) {
+      doc = new jsPDF();
+      await addImageToPDF(await getMangaCoverName(idManga));
+      const volumen: MFA.Chapter[] = await obtenerVolumen(nombreVolumenes[i], idManga);
+      console.log("ARRAY CAPITULOS", volumen);
+      console.log("OBTENTO UN VOLUMEN DE SIZE", nombreVolumenes.length);
 
-    doc.save((await getMangaName(idManga)) + ".pdf");
+      for (let k = 0; k < volumen.length; k++) {
+        if (volumen[k].chapter === lasChapterFetched) {
+          continue;
+        } else {
+          lasChapterFetched = volumen[k].chapter;
+        }
+        const imgURL: string[] = await getChapterImgUrls(volumen, k);
+        console.log("SIZE VOLUMEN", volumen.length);
+        console.log("ARRAY URL", imgURL);
+        for (let j = 0; j < imgURL.length; j++) {
+          await addImageToPDF(imgURL[j]);
+          console.log("ADD IMAGEN TO PDF");
+        }
+        if (numChapterFetched <= 59) {
+          numChapterFetched++;
+        } else {
+          console.log('LIMITE FETCHED ALCANZADO, ESPERANDO');
+          await delay(60000);
+          numChapterFetched = 0;
+        }
+      }
+      doc.save(`${mangaName} | Volumen - ${i} |.pdf`);
+    }
+    new Notification("MORTADELO Y FILEMON", { body: "LA DESCARGA A FINALIZADO" });
   }
 
   return (
@@ -114,7 +130,7 @@ function Home() {
             URL de mangadex
           </label>
           <input type="text" name="name" id="name" required />
-          <button type="submit" onClick={(e) => Descargar("62b74aa6-24df-4b91-b76d-39e7ab3c3ca5")}>
+          <button type="submit" onClick={(e) => Descargar("0aea9f43-d4a9-4bf7-bebc-550a512f9b95")}>
             Descargar
           </button>
         </div>
