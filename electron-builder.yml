@@ -9,4 +9,9 @@ files:
     filter:
       - package.json
       - app
-publish: null
+publish:
+  - provider: github
+  - owner: sergiomalagon
+  - vPrefixedTagName: true
+  - private: {{secrets.GITHUB_TOKEN}}
+  - releaseType: release
