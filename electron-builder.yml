@@ -1,6 +1,6 @@
-appId: com.example.nextron
-productName: My Nextron App
-copyright: Copyright © 2018 Yoshihide Shiono
+appId: com.malagon.myfdw
+productName: Mortadelo y Filemon Fan Page
+copyright: Copyright © 2021 Sergio
 directories:
   output: dist
   buildResources: resources

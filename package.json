@@ -24,6 +24,7 @@
     "mangadex-full-api": "^5.2.0"
   },
   "devDependencies": {
+    "@electron-forge/publisher-github": "^6.0.0-beta.59",
     "@material-ui/core": "^4.12.2",
     "@types/node": "^14.14.31",
     "@types/react": "^16.9.49",
@@ -34,5 +35,20 @@
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "typescript": "^4.3.5"
+  },
+  "config": {
+    "forge": {
+      "publishers": [
+        {
+          "name": "@electron-forge/publisher-github",
+          "config": {
+            "repository": {
+              "owner": "sergiomalagon",
+              "name": "Mortadelo-y-Filemon-Fan-Page"
+            }
+          }
+        }
+      ]
+    }
   }
 }
