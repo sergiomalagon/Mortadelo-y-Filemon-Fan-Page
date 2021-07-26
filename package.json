@@ -16,8 +16,10 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "axios": "^0.21.1",
     "electron-serve": "^1.1.0",
-    "electron-store": "^8.0.0"
+    "electron-store": "^8.0.0",
+    "jspdf": "^2.3.1"
   },
   "devDependencies": {
     "@material-ui/core": "^4.12.2",
