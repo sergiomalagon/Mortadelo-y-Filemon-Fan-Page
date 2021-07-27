@@ -22,7 +22,8 @@
     "electron-store": "^8.0.0",
     "got": "^9.6.0",
     "jspdf": "^2.3.1",
-    "mangadex-full-api": "^5.2.0"
+    "mangadex-full-api": "^5.2.0",
+    "react-hook-form": "^7.12.1"
   },
   "devDependencies": {
     "@material-ui/core": "^4.12.2",

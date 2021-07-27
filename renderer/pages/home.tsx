@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import Head from "next/head";
 import { Theme, makeStyles, createStyles } from "@material-ui/core/styles";
 import axios from "axios";
 import jsPDF from "jspdf";
 import MFA from "mangadex-full-api";
+import { SubmitHandler, useForm } from "react-hook-form";
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -33,12 +34,18 @@ const useStyles = makeStyles((theme: Theme) =>
   })
 );
 
+type Inputs = {
+  mangaURL: string,
+};
+
 function Home() {
   const classes = useStyles({});
   let doc = null;
   let lasChapterFetched: number = 0;
   let numChapterFetched: number = 0;
   const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<Inputs>();
+  const onSubmit: SubmitHandler<Inputs> = data =>Descargar(new URL(data.mangaURL).pathname.split('/')[2]);
 
   async function getBase64(url: string): Promise<string> {
     const response = await axios.get(url, {
@@ -81,18 +88,14 @@ function Home() {
     return manga.title;
   }
 
-  async function Descargar(idManga: string) {
+  async function Descargar(mangaId:string) {
     new Notification("MORTADELO Y FILEMON", { body: "LA DESCARGA A COMENZADO" });
-    const nombreVolumenes: string[] = await obtenerNombreVolumenes(idManga);
-    const mangaName: string = await getMangaName(idManga);
-    console.log("ENTRA EN EL BUCLE");
+    const nombreVolumenes: string[] = await obtenerNombreVolumenes(mangaId);
     for (let i = 0; i < nombreVolumenes.length; i++) {
       doc = new jsPDF();
-      await addImageToPDF(await getMangaCoverName(idManga));
-      const volumen: MFA.Chapter[] = await obtenerVolumen(nombreVolumenes[i], idManga);
+      await addImageToPDF(await getMangaCoverName(mangaId));
+      const volumen: MFA.Chapter[] = await obtenerVolumen(nombreVolumenes[i], mangaId);
       console.log("ARRAY CAPITULOS", volumen);
-      console.log("OBTENTO UN VOLUMEN DE SIZE", nombreVolumenes.length);
-
       for (let k = 0; k < volumen.length; k++) {
         if (volumen[k].chapter === lasChapterFetched) {
           continue;
@@ -109,12 +112,12 @@ function Home() {
         if (numChapterFetched <= 59) {
           numChapterFetched++;
         } else {
-          console.log('LIMITE FETCHED ALCANZADO, ESPERANDO');
+          console.log("LIMITE FETCHED ALCANZADO, ESPERANDO");
           await delay(60000);
           numChapterFetched = 0;
         }
       }
-      doc.save(`${mangaName} | Volumen - ${i} |.pdf`);
+      doc.save(`${await getMangaName(mangaId)} | Volumen - ${i} |.pdf`);
     }
     new Notification("MORTADELO Y FILEMON", { body: "LA DESCARGA A FINALIZADO" });
   }
@@ -125,15 +128,13 @@ function Home() {
         <title>Mortadelo y Filemon Fan Page</title>
       </Head>
       <main className={classes.main}>
-        <div className={classes.dowloader}>
-          <label htmlFor="name" className={classes.text}>
-            URL de mangadex
-          </label>
-          <input type="text" name="name" id="name" required />
-          <button type="submit" onClick={(e) => Descargar("0aea9f43-d4a9-4bf7-bebc-550a512f9b95")}>
+        <form className={classes.dowloader} onSubmit={handleSubmit(onSubmit)}>
+          <label className={classes.text}>URL de mangadex</label>
+          <input defaultValue='MANGADEX URL' {...register('mangaURL')} />
+          <button type="submit">
             Descargar
           </button>
-        </div>
+        </form>
       </main>
     </React.Fragment>
   );
